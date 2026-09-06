@@ -1,0 +1,169 @@
+// Pizza Lab - Exact Database Schema matching the demo videos
+// PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      Role     @default(STAFF)
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  RIDER
+}
+
+model Customer {
+  id            String   @id @default(cuid())
+  name          String
+  phone         String   @unique
+  whatsappName  String?
+  totalOrders   Int      @default(0)
+  lifetimeSpend Float    @default(0)
+  isVip         Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  orders        Order[]
+}
+
+model Rider {
+  id            String       @id @default(cuid())
+  name          String
+  phone         String       @unique
+  status        RiderStatus  @default(OFFLINE)
+  currentLat    Float?
+  currentLng    Float?
+  cashInHand    Float        @default(0)
+  totalDeliveries Int        @default(0)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  orders        Order[]
+  trips         Trip[]
+}
+
+enum RiderStatus {
+  AVAILABLE
+  ON_DELIVERY
+  OFFLINE
+  BUSY
+}
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  name        String
+  nameUrdu    String?
+  category    String
+  largePrice  Float?
+  regularPrice Float?
+  smallPrice  Float?
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique // e.g. #PL5770854278944
+  customerId      String
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  riderId         String?
+  rider           Rider?      @relation(fields: [riderId], references: [id])
+  status          OrderStatus @default(PENDING)
+  totalAmount     Float
+  shippingFee     Float       @default(0)
+  paymentMethod   String      @default("COD") // COD / Online
+  deliveryAddress String
+  deliveryNotes   String?
+  source          OrderSource @default(WHATSAPP) // VOICE / WHATSAPP / WEB
+  sessionId       String?     // for voice agent
+  confirmedAt     DateTime?
+  preparedAt      DateTime?
+  dispatchedAt    DateTime?
+  deliveredAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  items           OrderItem[]
+  trip            Trip?
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum OrderSource {
+  VOICE
+  WHATSAPP
+  WEB
+  PHONE
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId  String?
+  menuItem    MenuItem? @relation(fields: [menuItemId], references: [id])
+  name        String   // snapshot of item name
+  size        String?  // Large / Regular / Small
+  quantity    Int      @default(1)
+  unitPrice   Float
+  totalPrice  Float
+}
+
+model Trip {
+  id            String     @id @default(cuid())
+  orderId       String     @unique
+  order         Order      @relation(fields: [orderId], references: [id])
+  riderId       String
+  rider         Rider      @relation(fields: [riderId], references: [id])
+  status        TripStatus @default(ASSIGNED)
+  assignedAt    DateTime   @default(now())
+  arrivedRestaurantAt DateTime?
+  pickedUpAt    DateTime?
+  arrivedCustomerAt DateTime?
+  completedAt   DateTime?
+  distanceKm    Float?
+  cashCollected Float?
+  notes         String?
+}
+
+enum TripStatus {
+  ASSIGNED
+  TO_RESTAURANT
+  PICKED_UP
+  TO_CUSTOMER
+  ARRIVED
+  COMPLETED
+  FAILED
+}
+
+model VoiceSession {
+  id          String   @id @default(cuid())
+  sessionId   String   @unique
+  status      String   @default("idle") // idle / listening / speaking
+  customerPhone String?
+  orderId     String?
+  transcript  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
